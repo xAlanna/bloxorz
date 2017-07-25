@@ -49,8 +49,13 @@ def main():
 
     # A global dict value that will contain all the Pygame
     # Surface objects returned by pygame.image.load().
-    IMAGESDICT = {'goal': pygame.image.load('Selector.png'),
+    IMAGESDICT = {'goal': pygame.image.load('RedSelector.png'),
                   'inside floor': pygame.image.load('Plain_Block.png'),
+                  'heavy switch': pygame.image.load('X_Block.png'),
+                  'light switch': pygame.image.load('O_Block.png'),
+                  'bridge': pygame.image.load('Bridge_Block.png'),
+                  'split block': pygame.image.load('Split_Block.png'),
+                  'red floor': pygame.image.load('Red_Block.png'),
                   'title': pygame.image.load('star_title.png'),
                   'solved': pygame.image.load('star_solved.png'),
                   'rectangle': pygame.image.load('Wood_Block_Tall.png')}
@@ -58,7 +63,8 @@ def main():
 
     # These dict values are global, and map the character that appears
     # in the level file to the Surface object it represents.
-    TILEMAPPING = {'o': IMAGESDICT['inside floor']}
+    TILEMAPPING = {'-': IMAGESDICT['inside floor'],
+		   '*': IMAGESDICT['red floor']}
 
     startScreen() # show the title screen until the user presses a key
 
@@ -177,6 +183,8 @@ def runLevel(levels, levelNum):
                 # increment the step counter.
                 gameStateObj['stepCounter'] += 1
                 mapNeedsRedraw = True
+            else:
+                return 'reset'
 
             if isLevelFinished(levelObj, gameStateObj):
                 # level is solved, we should show the "Solved!" image.
@@ -186,7 +194,7 @@ def runLevel(levels, levelNum):
         DISPLAYSURF.fill(BGCOLOR)
 
         if mapNeedsRedraw:
-            mapSurf = drawMap(mapObj, gameStateObj, levelObj['goal'])
+            mapSurf = drawMap(mapObj, gameStateObj, levelObj)
             mapNeedsRedraw = False
 
         if cameraUp and cameraOffsetY < MAX_CAM_X_PAN:
@@ -210,6 +218,10 @@ def runLevel(levels, levelNum):
         stepRect = stepSurf.get_rect()
         stepRect.bottomleft = (20, WINHEIGHT - 10)
         DISPLAYSURF.blit(stepSurf, stepRect)
+        for currentRedTile in levelObj['redTiles']:
+	    if gameStateObj['player'] == currentRedTile and gameStateObj['block2'] == currentRedTile:
+                        youLost()
+		        return 'reset'
 
         if levelIsComplete:
             # is solved, show the "Solved!" image until the player
@@ -230,7 +242,7 @@ def isWall(mapObj, x, y):
     the map is a wall, otherwise return False."""
     if x < 0 or x >= len(mapObj) or y < 0 or y >= len(mapObj[x]):
         return False # x and y aren't actually on the map.
-    elif mapObj[x][y] in ('#', 'x'):
+    elif mapObj[x][y] == '#':
         return True # wall is blocking
     return False
 
@@ -249,11 +261,11 @@ def decorateMap(mapObj, startxy):
     # Remove the non-wall characters from the map data
     for x in range(len(mapObjCopy)):
         for y in range(len(mapObjCopy[0])):
-            if mapObjCopy[x][y] in ('$', '.', '@', '+', '*'):
+            if mapObjCopy[x][y] in ('$', '.', '@', '+'):#, '*'):
                 mapObjCopy[x][y] = ' '
     
     # Flood fill to determine inside/outside floor tiles.
-    floodFill(mapObjCopy, startx, starty, ' ', 'o')
+    floodFill(mapObjCopy, startx, starty, ' ', '-')
 
     return mapObjCopy
 
@@ -280,24 +292,32 @@ def makeMove(mapObj, gameStateObj, playerMoveTo):#, jump):
 		    		gameStateObj['player'] = (playerx, playery-1)
 				gameStateObj['block2'] = (playerx, playery-2)
 				return True
+			    else:
+				youLost()
 	    		elif playerMoveTo == DOWN:
 			    if not isWall(mapObj, playerx, playery + 1) and not isWall(mapObj, blockx, blocky + 2):
 		    		gameStateObj['blockState'] = 'back'
 		    		gameStateObj['player'] = (playerx, playery+1)
 				gameStateObj['block2'] = (playerx, playery+2)
 				return True
+			    else:
+				youLost()
 			elif playerMoveTo == LEFT:
 			    if not isWall(mapObj, playerx-1, playery) and not isWall(mapObj, blockx-2, blocky):
 		    		gameStateObj['blockState'] = 'left'
 		    		gameStateObj['player'] = (playerx-1, playery)
 				gameStateObj['block2'] = (playerx-2, playery)
 				return True
+			    else:
+				youLost()
 			elif playerMoveTo == RIGHT:
 			    if not isWall(mapObj, playerx+1, playery) and not isWall(mapObj, blockx+2, blocky):
 		    		gameStateObj['blockState'] = 'right'
 		    		gameStateObj['player'] = (playerx+1, playery)
 				gameStateObj['block2'] = (playerx+2, playery)
 				return True
+			    else:
+				youLost()
     elif gameStateObj['blockState'] == 'foward':
 		       	if playerMoveTo == UP:
 			    if not isWall(mapObj, blockx, blocky - 1):
@@ -305,22 +325,30 @@ def makeMove(mapObj, gameStateObj, playerMoveTo):#, jump):
 		    		gameStateObj['player'] = (blockx, blocky-1)
 				gameStateObj['block2'] = (blockx, blocky-1)
 				return True
+			    else:
+				youLost()
 	    		elif playerMoveTo == DOWN:
 			    if not isWall(mapObj, playerx, playery + 1):
 		    		gameStateObj['blockState'] = 'stand'
 		    		gameStateObj['player'] = (playerx, playery+1)
 				gameStateObj['block2'] = (playerx, playery+1)
 				return True
+			    else:
+				youLost()
 			elif playerMoveTo == LEFT:
 			    if not isWall(mapObj, playerx-1, playery) and not isWall(mapObj, blockx-1, blocky):
 		    		gameStateObj['player'] = (playerx-1, playery)
 				gameStateObj['block2'] = (blockx-1, blocky)
 				return True
+			    else:
+				youLost()
 			elif playerMoveTo == RIGHT:
 			    if not isWall(mapObj, playerx+1, playery) and not isWall(mapObj, blockx+1, blocky):
 		    		gameStateObj['player'] = (playerx+1, playery)
 				gameStateObj['block2'] = (blockx+1, blocky)
 				return True
+			    else:
+				youLost()
 
     elif gameStateObj['blockState'] == 'back':
 		       	if playerMoveTo == UP:
@@ -329,46 +357,62 @@ def makeMove(mapObj, gameStateObj, playerMoveTo):#, jump):
 		    		gameStateObj['player'] = (playerx, playery-1)
 				gameStateObj['block2'] = (playerx, playery-1)
 				return True
+			    else:
+				youLost()
 	    		elif playerMoveTo == DOWN:
 			    if not isWall(mapObj, blockx, blocky + 1):
 		    		gameStateObj['blockState'] = 'stand'
 		    		gameStateObj['player'] = (blockx, blocky+1)
 				gameStateObj['block2'] = (blockx, blocky+1)
 				return True
+			    else:
+				youLost()
 			elif playerMoveTo == LEFT:
 			    if not isWall(mapObj, playerx-1, playery) and not isWall(mapObj, blockx-1, blocky):
 		    		gameStateObj['player'] = (playerx-1, playery)
 				gameStateObj['block2'] = (blockx-1, blocky)
 				return True
+			    else:
+				youLost()
 			elif playerMoveTo == RIGHT:
 			    if not isWall(mapObj, playerx+1, playery) and not isWall(mapObj, blockx+1, blocky):
 		    		gameStateObj['player'] = (playerx+1, playery)
 				gameStateObj['block2'] = (blockx+1, blocky)
 				return True
+			    else:
+				youLost()
     elif gameStateObj['blockState'] == 'left':
 		       	if playerMoveTo == UP:
 			    if not isWall(mapObj, playerx, playery-1) and not isWall(mapObj, blockx, blocky-1):
 		    		gameStateObj['player'] = (playerx, playery-1)
 				gameStateObj['block2'] = (blockx, blocky-1)
 				return True
+			    else:
+				youLost()
 
 	    		elif playerMoveTo == DOWN:
 			    if not isWall(mapObj, playerx, playery+1) and not isWall(mapObj, blockx, blocky+1):
 		    		gameStateObj['player'] = (playerx, playery+1)
 				gameStateObj['block2'] = (blockx, blocky+1)
 				return True
+			    else:
+				youLost()
 			elif playerMoveTo == LEFT:
 		            if not isWall(mapObj, blockx-1, blocky):
 		    		gameStateObj['blockState'] = 'stand'
 		    		gameStateObj['player'] = (blockx-1, blocky)
 				gameStateObj['block2'] = (blockx-1, blocky)
 				return True
+			    else:
+				youLost()
 			elif playerMoveTo == RIGHT:
 		            if not isWall(mapObj, playerx+1, playery):
 		    		gameStateObj['blockState'] = 'stand'
 		    		gameStateObj['player'] = (playerx+1, playery)
 				gameStateObj['block2'] = (playerx+1, playery)
 				return True
+			    else:
+				youLost()
 
     elif gameStateObj['blockState'] == 'right':
 		       	if playerMoveTo == UP:
@@ -376,26 +420,48 @@ def makeMove(mapObj, gameStateObj, playerMoveTo):#, jump):
 		    		gameStateObj['player'] = (playerx, playery-1)
 				gameStateObj['block2'] = (blockx, blocky-1)
 				return True
+			    else:
+				youLost()
 
 	    		elif playerMoveTo == DOWN:
 			    if not isWall(mapObj, playerx, playery+1) and not isWall(mapObj, blockx, blocky+1):
 		    		gameStateObj['player'] = (playerx, playery+1)
 				gameStateObj['block2'] = (blockx, blocky+1)
 				return True
+			    else:
+				youLost()
 			elif playerMoveTo == LEFT:
 		            if not isWall(mapObj, playerx-1, playery):
 		    		gameStateObj['blockState'] = 'stand'
 		    		gameStateObj['player'] = (playerx-1, playery)
 				gameStateObj['block2'] = (playerx-1, playery)
 				return True
+			    else:
+				youLost()
 			elif playerMoveTo == RIGHT:
 		            if not isWall(mapObj, blockx+1, blocky):
 		    		gameStateObj['blockState'] = 'stand'
 		    		gameStateObj['player'] = (blockx+1, blocky)
 				gameStateObj['block2'] = (blockx+1, blocky)
 				return True
+			    else:
+				youLost()
     return False
 
+def youLost():
+    gameOverFont = pygame.font.Font('freesansbold.ttf', 150)
+    gameSurf = gameOverFont.render('You', True, WHITE)
+    overSurf = gameOverFont.render('Lose!', True, WHITE)
+    gameRect = gameSurf.get_rect()
+    overRect = overSurf.get_rect()
+    gameRect.midtop = (WINWIDTH / 2, 10)
+    overRect.midtop = (WINWIDTH / 2, gameRect.height + 10 + 25)
+
+    DISPLAYSURF.blit(gameSurf, gameRect)
+    DISPLAYSURF.blit(overSurf, overRect)
+    pygame.display.update()
+    pygame.time.wait(2000)
+   
 
 def startScreen():
     """Display the start screen (which has the title and instructions)
@@ -494,16 +560,37 @@ def readLevelsFile(filename):
             startx = None # The x and y for the player's starting position
             starty = None
             goal = None # list of (x, y) tuples for each goal.
-            #stars = [] # list of (x, y) for each star's starting position.
+            redTiles = [] # list of (x, y) for each red tile.
+	    switches = []
+            bridges = []
+            switchInfo = []
             for x in range(maxWidth):
-                for y in range(len(mapObj[x])):
-                    if mapObj[x][y] == '@':
-                        # '@' is player, '+' is player & goal
-                        startx = x
-                        starty = y
-                    if mapObj[x][y] == '.':
-                        # '.' is goal, '*' is star & goal
-                        goal = (x, y)
+                if mapObj[x][0] == '=':
+		    switch = mapObj[x][1]
+                    switchType = mapObj[x][2]
+                    bridge = mapObj[x][3]
+		    switchFunction = None
+                    if len(mapObj)>4:
+			if mapObj[x][4] == '-' or mapObj[x][4] == '+':
+			    switchFunction = mapObj[x][4]
+                    switchInfo.append((switch, switchType, bridge, switchFunction))
+			
+		else:
+                    for y in range(len(mapObj[x])):
+                        if mapObj[x][y] == '@':
+                            # '@' is player
+                            startx = x
+                            starty = y
+                        elif mapObj[x][y] == '.':
+                            # '.' is goal
+                            goal = (x, y)
+		        elif mapObj[x][y] == '*':
+			    redTiles.append((x,y))
+                        elif mapObj[x][y].isupper():
+			    switches.append((x,y))
+		        elif mapObj[x][y].islower():
+			    bridges.append(((x,y), mapObj[x][y], False))
+		    
 
             # Basic level design sanity checks:
             assert startx != None and starty != None, 'Level %s (around line %s) in %s is missing a "@" or "+" to mark the start point.' % (levelNum+1, lineNum, filename)
@@ -513,11 +600,15 @@ def readLevelsFile(filename):
             gameStateObj = {'player': (startx, starty),
                             'stepCounter': 0,
                             'blockState': 'stand',
-			    'block2': (startx, starty)}
+			    'block2': (startx, starty),
+			    'switches': switches,
+			    'bridges': bridges,
+			    'switchInfo': switchInfo}
             levelObj = {'width': maxWidth,
                         'height': len(mapObj),
                         'mapObj': mapObj,
                         'goal': goal,
+                        'redTiles': redTiles,
                         'startState': gameStateObj}
 
             levels.append(levelObj)
@@ -552,7 +643,7 @@ def floodFill(mapObj, x, y, oldCharacter, newCharacter):
         floodFill(mapObj, x, y-1, oldCharacter, newCharacter) # call up
 
 
-def drawMap(mapObj, gameStateObj, goal):
+def drawMap(mapObj, gameStateObj, levelObj):
     """Draws the map to a Surface object, including the player and
     stars. This function does not call pygame.display.update(), nor
     does it draw the "Level" and "Steps" text in the corner."""
@@ -567,24 +658,29 @@ def drawMap(mapObj, gameStateObj, goal):
 
     # Draw the tile sprites onto this surface.
     for x in range(len(mapObj)):
-        for y in range(len(mapObj[x])):
-            spaceRect = pygame.Rect((x * TILEWIDTH, y * TILEFLOORHEIGHT, TILEWIDTH, TILEHEIGHT))
-            if mapObj[x][y] in TILEMAPPING:
-                baseTile = TILEMAPPING[mapObj[x][y]]
-                mapSurf.blit(baseTile, spaceRect)
+        if mapObj[x][0] != '=':
+            for y in range(len(mapObj[x])):
+                spaceRect = pygame.Rect((x * TILEWIDTH, y * TILEFLOORHEIGHT, TILEWIDTH, TILEHEIGHT))
+                if mapObj[x][y] in TILEMAPPING:
+                    baseTile = TILEMAPPING[mapObj[x][y]]
+                    mapSurf.blit(baseTile, spaceRect)
  
-            if (x, y) == goal:
-                # Draw a goal without a star on it.
-                mapSurf.blit(IMAGESDICT['goal'], spaceRect)
-	    if (x, y) == gameStateObj['player']:
-                baseblock = pygame.Rect((x * TILEWIDTH, y * TILEFLOORHEIGHT-20, TILEWIDTH, TILEHEIGHT))
-		mapSurf.blit(IMAGESDICT['rectangle'], baseblock)
-		if (x, y) == gameStateObj['block2']:
-		    stand = pygame.Rect((x * TILEWIDTH, y * TILEFLOORHEIGHT-60, TILEWIDTH, TILEHEIGHT))
-		    mapSurf.blit(IMAGESDICT['rectangle'], stand)
-	    elif (x,y) != gameStateObj['player'] and (x,y) == gameStateObj['block2']:
-	        baseblock = pygame.Rect((x * TILEWIDTH, y * TILEFLOORHEIGHT-20, TILEWIDTH, TILEHEIGHT))
-		mapSurf.blit(IMAGESDICT['rectangle'], baseblock)
+                if (x, y) == levelObj['goal']:
+                    # Draw a goal without a star on it.
+                    mapSurf.blit(IMAGESDICT['goal'], spaceRect)
+                    #elif (x, y) in levelObj['redTiles']:
+		    #mapSurf.blit(IMAGESDICT['red floor'], spaceRect)
+                if (x, y) in gameStateObj['switches']:
+		    mapSurf.blit(IMAGESDICT['heavy switch'], spaceRect)
+	        if (x, y) == gameStateObj['player']:
+                    baseblock = pygame.Rect((x * TILEWIDTH, y * TILEFLOORHEIGHT-20, TILEWIDTH, TILEHEIGHT))
+		    mapSurf.blit(IMAGESDICT['rectangle'], baseblock)
+		    if (x, y) == gameStateObj['block2']:
+		        stand = pygame.Rect((x * TILEWIDTH, y * TILEFLOORHEIGHT-60, TILEWIDTH, TILEHEIGHT))
+		        mapSurf.blit(IMAGESDICT['rectangle'], stand)
+	        elif (x,y) != gameStateObj['player'] and (x,y) == gameStateObj['block2']:
+	            baseblock = pygame.Rect((x * TILEWIDTH, y * TILEFLOORHEIGHT-20, TILEWIDTH, TILEHEIGHT))
+		    mapSurf.blit(IMAGESDICT['rectangle'], baseblock)
 
     return mapSurf
 

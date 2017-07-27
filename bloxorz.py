@@ -2,7 +2,7 @@ import random, sys, copy, os, pygame
 from pygame.locals import *
 
 FPS = 30 # frames per second to update the screen
-WINWIDTH = 800 # width of the program's window, in pixels
+WINWIDTH = 1200 # width of the program's window, in pixels
 WINHEIGHT = 600 # height in pixels
 HALF_WINWIDTH = int(WINWIDTH / 2)
 HALF_WINHEIGHT = int(WINHEIGHT / 2)
@@ -49,8 +49,8 @@ def main():
                   'solved': pygame.image.load('star_solved.png'),
                   'rectangle': pygame.image.load('Wood_Block_Tall.png'),
 		  'red floor': pygame.image.load('Red_Block.png'),
-		  'bridge floor_o': pygame.image.load('Bridge_Block.png'),
-		  'bridge floor_x': pygame.image.load('Bridge_Block.png'),
+		  'bridge floor': pygame.image.load('Bridge_Block.png'),
+		  #'bridge floor_x': pygame.image.load('Bridge_Block.png'),
 		  'split block': pygame.image.load('Split_Block.png'),
 		  'O block': pygame.image.load('O_Block.png'),
 		  'X block': pygame.image.load('X_Block.png')}
@@ -180,6 +180,38 @@ def runLevel(levels, levelNum):
 		
             moved = makeMove(mapObj, gameStateObj, playerMoveTo)
 
+            for current in gameStateObj['switchList']:
+	        switchx = current[3]
+	        switchy = current[4]
+                if current[1] == 'O':
+                    if ((switchx, switchy)) == gameStateObj['player'] and ((switchx, switchy)) == gameStateObj['block2']:
+                        count = 0
+                        for currentbridge in gameStateObj['bridgeList']:
+                            count = count +1
+                            if currentbridge[0] == current[5]:
+                                if current[2] == '$':
+                                    currentbridge[2] = not currentbridge[2]
+                                elif current[2] == '+':
+                                    currentbridge[2] = True
+                                elif current[2] == '-':
+                                    currentbridge[2] = False
+                                gameStateObj['bridgeList'][count] = current
+                                mapNeedsRedraw = True
+                else:
+                    if ((switchx, switchy)) == gameStateObj['player'] or ((switchx, switchy)) == gameStateObj['block2']:
+		        count=0
+                        for currentbridge in gameStateObj['bridgeList']:
+                            count = count + 1
+                            if currentbridge[0] == current[5]:
+                                if current[2] == '$':
+                                    currentbridge[2] = not currentbridge[2]
+                                elif current[2] == '+':
+                                    currentbridge[2] = True
+                                elif current[2] == '-':
+                                    currentbridge[2] = False
+		                gameStateObj['bridgeList'][count] = current
+                                mapNeedsRedraw = True
+
 	
             if moved:
                 # increment the step counter.
@@ -194,6 +226,7 @@ def runLevel(levels, levelNum):
                 keyPressed = False
 
         DISPLAYSURF.fill(BGCOLOR)
+
 
         if mapNeedsRedraw:
             mapSurf = drawMap(mapObj, gameStateObj, levelObj['goal'])
@@ -226,6 +259,16 @@ def runLevel(levels, levelNum):
 		showYouFellOffScreen()
 		return 'reset'
 
+        for currentBridge in gameStateObj['bridgeList']:
+            if currentBridge[2] == False:
+                for bridgePos in currentBridge[1]:
+                    if bridgePos == gameStateObj['player'] or bridgePos == gameStateObj['block2']:      
+				showYouFellOffScreen()
+				return 'reset'
+			    
+
+
+
         if levelIsComplete:
             # is solved, show the "Solved!" image until the player
             # has pressed a key.
@@ -237,7 +280,7 @@ def runLevel(levels, levelNum):
                 return 'solved'
 
         pygame.display.update() # draw DISPLAYSURF to the screen.
-        FPSCLOCK.tick()
+        FPSCLOCK.tick(FPS)
 
 
 def isWall(mapObj, x, y):
@@ -485,19 +528,7 @@ def makeMove(mapObj, gameStateObj, playerMoveTo):
 	        return showYouFellOffScreen()
 	return False
 
-
-def check_O_Activation():
-    for current in gameStateObj['switchList']:
-	switchx = current[3]
-	switchy = current[4]
-        if ((switchx, switchy)) == gameStateObj['player'] and ((switchx, switchy)) == gameStateObj['block2']:
-	    bridge_O_Activation(current[5], current[6])
-
-def bridge_O_Activation():
-    if 'O Block' == gameStateObj['player'] and gameStateObj['block2']:
-	return spawn_O_Bridge()
-    else:
-	return False
+    
 
 def startScreen():
     """Display the start screen (which has the title and instructions)
@@ -598,26 +629,41 @@ def readLevelsFile(filename):
             goal = None
 	    red_Floor = [] 
 	    switchList = []
-            for x in range(maxWidth):
-
-		   
+            bridgeList = []
+            for x in range(maxWidth):	   
                 for y in range(len(mapObj[x])):
 		    if mapObj[0][y] == '=':
 		        switch = mapObj[1][y]
 		        switchType = mapObj[2][y]
 		        switchFunction = mapObj[3][y]
 		        bridge = []
+                        bridgeName = mapObj[4][y] 
  		        for tempx in range(maxWidth):
 			    for tempy in range(len(mapObj[tempx])): 
-		                if mapObj[0][tempy] != '=':
+		                if mapObj[0][tempy] != '=' and mapObj[0][tempy] != '%':
 				    if mapObj[tempx][tempy] == switch:
 				        switchx = tempx
 				        switchy = tempy
-				    if mapObj[tempx][tempy] == switch.lower():
-				        bridgex = tempx
-				        bridgey = tempy
-				        bridge.append((bridgex, bridgey))
-		        switchList.append([switch, switchType, switchFunction, switchx, switchy, bridge, False])
+				    #if mapObj[tempx][tempy] == bridgeName:
+				    #    bridgex = tempx
+				    #    bridgey = tempy
+				    #    bridge.append((bridgex, bridgey))
+		        switchList.append([switch, switchType, switchFunction, switchx, switchy, bridgeName])
+                        addBridge = False
+			for currentBridge in bridgeList:
+			    if currentBridge[0] == bridgeName:
+                                addBridge = True 
+                        if addBridge:                       
+			    bridgeList.append([bridgeName, bridge, False])
+
+                    if mapObj[0][y] == '%':
+                        count = -1
+                        for currentBridge in bridgeList:
+                            count = count + 1
+			    if mapObj[1][y] == currentBridge[0]:
+                               currentBridge[1] = True	
+                               bridgeList[count] = currentBridge
+                       
                     if mapObj[x][y] in ('@'):
                          # '@' is player
                          startx = x
@@ -640,7 +686,8 @@ def readLevelsFile(filename):
                             'stepCounter': 0,
                             'blockState': 'stand',
 			    'block2': (startx, starty),
-			    'switchList': switchList}
+			    'switchList': switchList,
+                            'bridgeList': bridgeList}
             levelObj = {'width': maxWidth,
                         'height': len(mapObj),
                         'mapObj': mapObj,
@@ -695,13 +742,20 @@ def drawMap(mapObj, gameStateObj, goal):
 
     OList = []
     XList = []
-
+    currentBridgeList = []
+    count = -1
     for currentswitch in gameStateObj['switchList']:
+        count = count + 1
 	if currentswitch[1] == 'O':
 	    OList.append((currentswitch[3], currentswitch[4]))
 	elif currentswitch[1] == 'X':
 	    XList.append((currentswitch[3], currentswitch[4]))
-    # Draw the tile sprites onto this surface.
+
+    for currentbridge in gameStateObj['bridgeList']:
+        if currentbridge[2] == True:
+            for bridgePositions in currentbridge[1]:
+			currentBridgeList.append(bridgePositions)
+
     for x in range(len(mapObj)):
         for y in range(len(mapObj[x])):
             spaceRect = pygame.Rect((x * TILEWIDTH, y * TILEFLOORHEIGHT, TILEWIDTH, TILEHEIGHT))
@@ -714,6 +768,8 @@ def drawMap(mapObj, gameStateObj, goal):
 		mapSurf.blit(IMAGESDICT['X block'], spaceRect)
 	    if (x, y) in OList:
 		mapSurf.blit(IMAGESDICT['O block'], spaceRect)
+	    if (x, y) in currentBridgeList:
+		mapSurf.blit(IMAGESDICT['bridge floor'], spaceRect)
             #if (x, y) == goal:
                 # Draw a goal without a star on it.
                 #mapSurf.blit(IMAGESDICT['goal'], spaceRect)
